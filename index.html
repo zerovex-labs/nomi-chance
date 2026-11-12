@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#08020e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="PEKA!! — 告知ランプが光る瞬間だけを味わう、脳汁特化のブラウザゲーム">
+<title>PEKA!!</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cellipse cx='32' cy='32' rx='30' ry='20' fill='%23ff2448' stroke='%23222' stroke-width='4'/%3E%3Ctext x='32' y='40' font-size='22' font-weight='900' font-style='italic' text-anchor='middle' fill='%23fff'%3EP!%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- ===== ヘッダー ===== -->
+  <header class="head">
+    <h1 class="logo">PEKA<em>!!</em></h1>
+    <nav class="head-nav">
+      <button class="hbtn" data-open="zukan">図鑑<small id="zukanBadge">0/160</small></button>
+      <button class="hbtn" data-open="stats">統計</button>
+      <button class="hbtn" data-open="settings">設定</button>
+      <button class="hbtn snd" id="muteBtn" aria-label="ミュート">♪</button>
+    </nav>
+  </header>
+
+  <!-- ===== 情報パネル（設定・ゲーム数・確率） ===== -->
+  <section class="meters">
+    <div class="meter"><span>設定</span><b id="mLevel">3</b></div>
+    <div class="meter"><span>確率</span><b id="mProb">1/150</b></div>
+    <div class="meter"><span>前回</span><b id="mLast">-</b></div>
+    <div class="meter"><span>総ゲーム</span><b id="mTotal">0</b></div>
+    <div class="meter hot"><span>当選回数</span><b id="mHits">0</b></div>
+    <div class="meter"><span>ハマり</span><b id="mHamari">0</b></div>
+  </section>
+
+  <section class="modes">
+    <div class="toggle" id="tGame"><button data-v="quick">QUICK PEKA</button><button data-v="slot">SLOT PEKA</button></div>
+    <div class="toggle" id="tFx"><button data-v="normal">通常</button><button data-v="puchun">プチュン</button></div>
+  </section>
+
+  <!-- ===== 筐体（シェイク対象） ===== -->
+  <main id="machine">
+    <div class="cabinet">
+      <div class="screen" id="screen">
+        <div class="sky" id="sky"></div>
+        <div class="sky-glow"></div>
+
+        <div class="lamp-box" id="lampBox">
+          <div class="lamp" id="lamp">
+            <div class="lamp-rim"></div>
+            <div class="lamp-face">
+              <div class="lamp-glow"></div>
+              <svg class="lamp-type off" viewBox="0 0 400 230" aria-hidden="true">
+                <text x="198" y="128" class="t-big">PEKA!</text>
+                <text x="200" y="182" class="t-small">CHANCE</text>
+              </svg>
+              <svg class="lamp-type on" viewBox="0 0 400 230" aria-hidden="true">
+                <text x="198" y="128" class="t-big">PEKA!</text>
+                <text x="200" y="182" class="t-small">CHANCE</text>
+              </svg>
+            </div>
+            <div class="lamp-shine"></div>
+          </div>
+        </div>
+
+        <div class="guide" id="guide">PUSH!</div>
+      </div>
+    </div>
+
+    <div class="pads" id="pads">
+      <!-- QUICK PEKA：PUSHボタン1つ -->
+      <button class="push" id="pushBtn"><i>PUSH</i></button>
+      <!-- SLOT PEKA：3ボタン -->
+      <button class="pad" data-i="0"><i>LEFT</i></button>
+      <button class="pad" data-i="1"><i>CENTER</i></button>
+      <button class="pad" data-i="2"><i>RIGHT</i></button>
+    </div>
+  </main>
+</div>
+
+<!-- ===== 全画面演出レイヤー（下から順に重なる） ===== -->
+<div id="fx" aria-hidden="true">
+  <div id="rays"></div>
+  <div id="aura"></div>
+  <div id="fever"><i></i></div>
+  <canvas id="cv"></canvas>
+  <div id="flash"></div>
+  <div id="curtain"></div>
+  <div id="curtainText"></div>
+  <div id="banner"></div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<!-- ===== モーダル ===== -->
+<div class="modal" id="m-zukan"><div class="sheet">
+  <header><h2>演出図鑑 <span id="zukanCount">0/160</span></h2><button class="x">×</button></header>
+  <div class="body" id="zukanBody"></div>
+</div></div>
+
+<div class="modal" id="m-detail"><div class="sheet short">
+  <header><h2 id="detailTitle"></h2><button class="x">×</button></header>
+  <div class="body" id="detailBody"></div>
+</div></div>
+
+<div class="modal" id="m-stats"><div class="sheet">
+  <header><h2>統計</h2><button class="x">×</button></header>
+  <div class="body" id="statsBody"></div>
+</div></div>
+
+<div class="modal" id="m-settings"><div class="sheet">
+  <header><h2>設定</h2><button class="x">×</button></header>
+  <div class="body" id="settingsBody"></div>
+</div></div>
+
+<script src="js/config.js"></script>
+<script src="js/save.js"></script>
+<script src="js/core/sound.js"></script>
+<script src="js/core/particles.js"></script>
+<script src="js/core/stage.js"></script>
+<script src="js/effects/_helpers.js"></script>
+<script src="js/effects/royal.js"></script>
+<script src="js/effects/psych.js"></script>
+<script src="js/effects/impact.js"></script>
+<script src="js/effects/freeze.js"></script>
+<script src="js/effects/color.js"></script>
+<script src="js/effects/god.js"></script>
+<script src="js/effects/blackout.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#06020c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="NOMI! CHANCE — 飲み会向けパーティーゲーム。ランプが光ったら飲む！">
+<title>NOMI! CHANCE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cellipse cx='32' cy='32' rx='30' ry='20' fill='%23ff2fa0' stroke='%23222' stroke-width='4'/%3E%3Ctext x='32' y='40' font-size='22' font-weight='900' font-style='italic' text-anchor='middle' fill='%23fff'%3EN!%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/nomi.css">
+<script>
+/* 起動エラーを画面に表示する（どの環境で何が失敗したか分かるように。古いブラウザでも動く書き方） */
+(function () {
+  function show(msg) {
+    var b = document.getElementById('bootError');
+    if (!b) {
+      b = document.createElement('div'); b.id = 'bootError';
+      b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;padding:12px 14px;border-radius:12px;background:#3a0010;border:2px solid #ff4060;color:#fff;font:13px/1.6 sans-serif;white-space:pre-wrap;word-break:break-all';
+      b.textContent = '⚠ 起動エラー（この画面のスクリーンショットを送ってください）\n';
+      (document.body || document.documentElement).appendChild(b);
+    }
+    b.textContent += '・' + msg + '\n';
+  }
+  window.__nomiBootError = show;
+  window.addEventListener('error', function (e) {
+    var t = e.target;
+    if (t && t.tagName === 'SCRIPT') { show('読み込めないファイル：' + t.getAttribute('src')); return; }
+    if (e.message) show(e.message + (e.filename ? '（' + e.filename.split('/').slice(-2).join('/') + ' ' + e.lineno + '行）' : ''));
+  }, true);
+  window.addEventListener('load', function () {
+    if (!window.NOMI || !window.NOMI.Game || !window.NOMI.UI || !window.NOMI.Game.data) show('ゲームの起動処理が完了していません（URL：' + location.href + '）');
+  });
+})();
+</script>
+</head>
+<body>
+<noscript><div style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;background:#06020c;color:#fff;font:16px/1.7 sans-serif;text-align:center">JavaScript が無効のため遊べません。<br>ブラウザ（Safari / Chrome）で開き、JavaScript を有効にしてください。<br>ファイルアプリやLINEのプレビューでは動かないことがあります。</div></noscript>
+
+<!-- ================= 開始（設定）画面 ================= -->
+<section id="setup">
+  <div class="setup-inner">
+    <div class="logo-wrap big">
+      <img class="logo-img" src="img/logo.png" alt="" onerror="this.remove()">
+      <h1 class="logo">NOMI<em>!</em> <span>CHANCE</span></h1>
+    </div>
+    <p class="tagline">ランプが光ったら、飲む。</p>
+
+    <div class="card">
+      <label class="card-title">参加人数</label>
+      <div class="stepper">
+        <button type="button" id="countMinus" aria-label="人数を減らす">−</button>
+        <output id="countNum">5</output><span class="unit">人</span>
+        <button type="button" id="countPlus" aria-label="人数を増やす">＋</button>
+      </div>
+      <div id="nameList" class="names"></div>
+    </div>
+
+    <div class="card">
+      <label class="card-title">当選確率</label>
+      <div class="chips c3" id="oddsChips"></div>
+    </div>
+
+    <div class="card">
+      <label class="card-title">ゲームモード</label>
+      <div class="chips c2" id="modeChips">
+        <button type="button" data-v="chance">CHANCE MODE<small>ランプ＋PUSH</small></button>
+        <button type="button" data-v="slot">SLOT MODE<small>3リール＋STOP</small></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-sw"><div><label class="card-title">光・点滅を抑える</label><small class="hint">激しいフラッシュ・点滅・揺れを軽減します</small></div><button type="button" class="switch" id="calmSw" aria-label="光・点滅を抑える"></button></div>
+    </div>
+
+    <button type="button" class="reset-btn" id="resetBtn">記録をリセット</button>
+    <!-- GAME START は画面下に固定（スクロールしなくても常に見える） -->
+    <div class="start-bar">
+      <p class="resume" id="resumeInfo"></p>
+      <button type="button" class="start-btn" id="startBtn">GAME START</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ゲーム画面 ================= -->
+<div id="app" hidden>
+  <header class="head">
+    <div class="logo-wrap">
+      <img class="logo-img" src="img/logo.png" alt="" onerror="this.remove()">
+      <div class="logo small">NOMI<em>!</em> <span>CHANCE</span></div>
+    </div>
+    <nav class="head-nav">
+      <button class="hbtn" data-open="rank">成績</button>
+      <button class="hbtn" data-open="history">履歴</button>
+      <button class="hbtn" id="toSetup">設定</button>
+      <button class="hbtn snd" id="muteBtn" aria-label="ミュート">♪</button>
+    </nav>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><span>TOTAL PUSH</span><b id="sPush">0</b></div>
+    <div class="stat hot"><span>TOTAL HIT</span><b id="sHit">0</b></div>
+    <div class="stat"><span>ハマり</span><b id="sHamari">0</b></div>
+    <div class="stat wide"><span>前回当選者</span><b id="sLast">なし</b></div>
+  </section>
+
+  <section class="turn" id="turn">
+    <div class="turn-label">NOW PLAYING</div>
+    <div class="turn-name" id="turnName">たろう</div>
+    <div class="turn-next">次：<span id="nextName">じろう</span></div>
+  </section>
+
+  <div class="modes">
+    <div class="toggle" id="modeToggle"><button data-v="chance">CHANCE MODE</button><button data-v="slot">SLOT MODE</button></div>
+    <div class="odds-tag" id="oddsTag">HARD 1/20</div>
+  </div>
+
+  <main id="machine">
+    <div class="cabinet">
+      <div class="screen" id="screen">
+        <div class="sky" id="sky"></div>
+        <div class="sky-glow"></div>
+
+        <div class="lamp-box" id="lampBox">
+          <div class="lamp" id="lamp">
+            <div class="lamp-rim"></div>
+            <div class="lamp-face">
+              <div class="lamp-glow"></div>
+              <img class="lamp-logo off" src="img/logo.png" alt="" draggable="false">
+              <img class="lamp-logo on" src="img/logo.png" alt="NOMI! CHANCE" draggable="false">
+            </div>
+            <div class="lamp-shine"></div>
+          </div>
+        </div>
+
+        <div class="reels" id="reels">
+          <div class="reel"><div class="strip"></div></div>
+          <div class="reel"><div class="strip"></div></div>
+          <div class="reel"><div class="strip"></div></div>
+          <div class="payline"></div>
+        </div>
+
+        <div class="guide" id="guide">PUSH!</div>
+      </div>
+    </div>
+
+    <div class="pads">
+      <button class="push" id="pushBtn"><i>PUSH</i></button>
+      <div class="stops" id="stops">
+        <button class="stop" data-i="0"><i>STOP</i></button>
+        <button class="stop" data-i="1"><i>STOP</i></button>
+        <button class="stop" data-i="2"><i>STOP</i></button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ================= 全画面演出レイヤー（PEKA!! と共通の構成） ================= -->
+<div id="fx" aria-hidden="true">
+  <div id="rays"></div>
+  <div id="aura"></div>
+  <div id="fever"><i></i></div>
+  <canvas id="cv"></canvas>
+  <div id="flash"></div>
+  <div id="curtain"></div>
+  <div id="curtainText"></div>
+  <div id="banner"></div>
+</div>
+
+<!-- 結果表示（演出レイヤーより手前） -->
+<div id="result" aria-live="polite"><div class="r-main" data-text="SAFE!">SAFE!</div><div class="r-sub"></div></div>
+<div id="winner" aria-live="assertive">
+  <div class="w-top">🍺 HIT!! 🍺</div>
+  <div class="w-name" id="winnerName"></div>
+  <div class="w-sub">NOMI!! 飲め！</div>
+  <div class="w-tap" id="winnerTap">TAP で次のプレイヤーへ</div>
+</div>
+<div id="toast" role="status"></div>
+
+<!-- ================= モーダル ================= -->
+<div class="modal" id="m-rank"><div class="sheet">
+  <header><h2>プレイヤー別成績</h2><button class="x">×</button></header>
+  <div class="body" id="rankBody"></div>
+</div></div>
+<div class="modal" id="m-history"><div class="sheet">
+  <header><h2>当選履歴</h2><button class="x">×</button></header>
+  <div class="body" id="historyBody"></div>
+</div></div>
+
+<!-- 演出エンジン（PEKA!! のエンジンを nomi フォルダ内にコピーして同梱。nomi フォルダ単体でも動く） -->
+<script src="js/config.js"></script>
+<script src="js/engine/sound.js"></script>
+<script src="js/engine/particles.js"></script>
+<script src="js/engine/stage.js"></script>
+<script src="js/engine/helpers.js"></script>
+<!-- NOMI! CHANCE -->
+<script src="js/save.js"></script>
+<script src="js/clips.js"></script>
+<script src="js/reels.js"></script>
+<script src="js/puchun/_common.js"></script>
+<script src="js/puchun/bluecross.js"></script>
+<script src="js/puchun/crimson.js"></script>
+<script src="js/puchun/zan.js"></script>
+<script src="js/puchun/violet.js"></script>
+<script src="js/puchun/jikki.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
